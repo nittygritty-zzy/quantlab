@@ -149,3 +149,132 @@ def date_range(ctx, data_type):
 
     except Exception as e:
         click.echo(f"❌ Failed to get date range: {e}", err=True)
+
+
+@data.command('options-minute')
+@click.argument('tickers', nargs=-1, required=True)
+@click.option('--start', required=True, help='Start datetime (YYYY-MM-DD HH:MM)')
+@click.option('--end', required=True, help='End datetime (YYYY-MM-DD HH:MM)')
+@click.option('--type', 'option_type', type=click.Choice(['call', 'put']), help='Option type filter')
+@click.option('--min-strike', type=float, help='[NOT IMPLEMENTED] Minimum strike price')
+@click.option('--max-strike', type=float, help='[NOT IMPLEMENTED] Maximum strike price')
+@click.option('--limit', type=int, default=10000, help='Row limit (default: 10000)')
+@click.pass_context
+def query_options_minute(ctx, tickers, start, end, option_type, min_strike, max_strike, limit):
+    """
+    Query minute-level options data (1-day delayed from S3)
+
+    Perfect for historical analysis, backtesting, and research.
+    Data has 1-day delay - not for live trading.
+
+    NOTE: Only data from August 2025 onwards is supported. Strike price
+    filtering is not yet implemented (metadata encoded in ticker string).
+
+    Examples:
+
+      # Analyze AAPL call options intraday behavior
+      quantlab data options-minute AAPL \\
+        --start "2025-10-03 09:30" \\
+        --end "2025-10-03 16:00" \\
+        --type call \\
+        --limit 1000
+
+      # Study options flow during market open
+      quantlab data options-minute NVDA \\
+        --start "2025-09-15 09:30" \\
+        --end "2025-09-15 10:00" \\
+        --type call \\
+        --limit 5000
+    """
+    try:
+        parquet = ctx.obj['parquet']
+
+        # Parse datetimes
+        start_dt = datetime.strptime(start, "%Y-%m-%d %H:%M")
+        end_dt = datetime.strptime(end, "%Y-%m-%d %H:%M")
+
+        # Validate time range
+        duration = (end_dt - start_dt).total_seconds() / 3600
+        if duration > 8:
+            click.echo("⚠️  Warning: Querying more than 8 hours of minute data")
+            click.echo("   This may return a large dataset. Consider narrowing the time range.")
+
+        click.echo(f"\n🔍 Querying options minute data (1-day delayed from S3)...")
+        click.echo(f"   Time range: {start} to {end} ({duration:.1f} hours)")
+        click.echo(f"   Tickers: {', '.join(tickers)}")
+        if option_type:
+            click.echo(f"   Type: {option_type}")
+        if min_strike and max_strike:
+            click.echo(f"   Strike range: ${min_strike} - ${max_strike}")
+        click.echo()
+
+        # Query
+        df = parquet.get_options_minute(
+            underlying_tickers=list(tickers),
+            start_datetime=start_dt,
+            end_datetime=end_dt,
+            option_type=option_type,
+            min_strike=min_strike,
+            max_strike=max_strike,
+            limit=limit
+        )
+
+        if df is None or df.empty:
+            click.echo("❌ No data found for the specified parameters")
+            click.echo("\nTips:")
+            click.echo("  • Data has 1-day delay - use yesterday's date")
+            click.echo("  • Check data availability with: quantlab data check")
+            click.echo("  • Try a different date range or strike prices")
+            return
+
+        # Display summary
+        click.echo(f"📊 Retrieved {len(df):,} rows of minute options data\n")
+
+        # Extract underlying symbols from tickers (format: O:AAPL251003C00220000)
+        underlying_symbols = set()
+        for ticker in df['ticker']:
+            # Extract symbol between 'O:' and first digit
+            parts = ticker.split(':', 1)
+            if len(parts) == 2:
+                symbol_part = parts[1]
+                # Find where digits start
+                for i, char in enumerate(symbol_part):
+                    if char.isdigit():
+                        underlying_symbols.add(symbol_part[:i])
+                        break
+
+        click.echo(f"Time Range: {df['timestamp'].min()} to {df['timestamp'].max()}")
+        if underlying_symbols:
+            click.echo(f"Underlying: {', '.join(sorted(underlying_symbols))}")
+        click.echo(f"Unique Contracts: {df['ticker'].nunique()}\n")
+
+        # Statistical summary (using OHLC data)
+        click.echo("📈 Price Summary:")
+        click.echo(f"  Close: ${df['close'].mean():.2f} avg, ${df['close'].min():.2f} - ${df['close'].max():.2f}")
+        click.echo(f"  Volume: {df['volume'].sum():,} total, {df['volume'].mean():.0f} avg")
+        click.echo(f"  Transactions: {df['transactions'].sum():,} total\n")
+
+        # Show sample data
+        click.echo("📋 Sample Data (first 10 rows):\n")
+
+        display_cols = ['timestamp', 'ticker', 'open', 'high', 'low', 'close', 'volume', 'transactions']
+        display_df = df[display_cols].head(10)
+
+        click.echo(tabulate(display_df, headers='keys', tablefmt='simple', showindex=False))
+
+        if len(df) > 10:
+            click.echo(f"\n... {len(df) - 10:,} more rows")
+
+        # Usage suggestions
+        click.echo("\n💡 Analysis Suggestions:")
+        click.echo("  • Calculate volume-weighted average price (VWAP)")
+        click.echo("  • Analyze intraday price patterns and volatility")
+        click.echo("  • Detect large volume spikes and unusual options flow")
+        click.echo("  • Study bid-ask spreads during different market conditions")
+        click.echo("  • Track contract liquidity throughout the trading day")
+
+    except ValueError as e:
+        click.echo(f"❌ Invalid datetime format: {e}", err=True)
+        click.echo("   Use format: YYYY-MM-DD HH:MM (e.g., '2025-10-14 09:30')")
+    except Exception as e:
+        click.echo(f"❌ Failed to query options minute data: {e}", err=True)

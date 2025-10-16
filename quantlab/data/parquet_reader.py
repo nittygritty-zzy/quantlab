@@ -266,6 +266,153 @@ class ParquetReader:
             logger.error(f"Failed to get date range: {e}")
             return None, None
 
+    def get_options_minute(
+        self,
+        underlying_tickers: List[str],
+        start_datetime: Optional[datetime] = None,
+        end_datetime: Optional[datetime] = None,
+        option_type: Optional[str] = None,
+        min_strike: Optional[float] = None,
+        max_strike: Optional[float] = None,
+        expiration_start: Optional[date] = None,
+        expiration_end: Optional[date] = None,
+        limit: Optional[int] = None
+    ):
+        """
+        Query minute-level options data from Parquet files
+
+        NOTE: Options minute data has 1-day delay (downloaded from S3).
+        Perfect for historical analysis, backtesting, and research.
+
+        IMPORTANT: Due to schema changes, only data from August 2025 onwards
+        is currently supported. Earlier data uses a different schema where
+        metadata is encoded in the ticker string.
+
+        Args:
+            underlying_tickers: List of underlying ticker symbols
+            start_datetime: Start datetime filter
+            end_datetime: End datetime filter
+            option_type: Optional 'call' or 'put' filter
+            min_strike: Minimum strike price filter
+            max_strike: Maximum strike price filter
+            expiration_start: Minimum expiration date
+            expiration_end: Maximum expiration date
+            limit: Optional row limit (recommended for large queries)
+
+        Returns:
+            Pandas DataFrame with minute-level options data
+
+        Example:
+            # Analyze AAPL call options intraday behavior
+            df = reader.get_options_minute(
+                underlying_tickers=['AAPL'],
+                start_datetime=datetime(2025, 10, 14, 9, 30),
+                end_datetime=datetime(2025, 10, 14, 16, 0),
+                option_type='call',
+                min_strike=175,
+                max_strike=185,
+                limit=10000
+            )
+        """
+        if not self.options_minute_path.exists():
+            logger.warning(f"Options minute path does not exist: {self.options_minute_path}")
+            return None
+
+        try:
+            # Build query - metadata is encoded in ticker string, not separate columns
+            # Ticker format: O:AAPL251003C00220000 (Options:Symbol+Date+Type+Strike)
+            query_parts = [
+                """SELECT
+                    timestamp,
+                    ticker,
+                    open,
+                    high,
+                    low,
+                    close,
+                    volume,
+                    transactions
+                """
+            ]
+
+            # Only query August 2025 onwards due to schema change
+            # Earlier files have different schema
+            # Build list of existing month patterns
+            parquet_patterns = []
+            base_path = self.options_minute_path / "year=2025"
+            if base_path.exists():
+                for month in range(8, 13):  # Aug-Dec
+                    month_path = base_path / f"month={month:02d}"
+                    if month_path.exists():
+                        parquet_patterns.append(str(month_path / "**/*.parquet"))
+
+            # Add future years if they exist
+            year_2026_path = self.options_minute_path / "year=2026"
+            if year_2026_path.exists():
+                parquet_patterns.append(str(year_2026_path / "**/*.parquet"))
+
+            if not parquet_patterns:
+                logger.error("No options_minute data found for Aug 2025 onwards")
+                return None
+
+            # Combine patterns with array syntax
+            pattern_list = ", ".join(f"'{p}'" for p in parquet_patterns)
+            query_parts.append(f"FROM read_parquet([{pattern_list}])")
+
+            # Add filters using ticker pattern matching
+            where_clauses = []
+
+            if underlying_tickers:
+                # Filter by ticker prefix (e.g., 'O:AAPL%' for AAPL)
+                ticker_patterns = " OR ".join(f"ticker LIKE 'O:{t}%'" for t in underlying_tickers)
+                where_clauses.append(f"({ticker_patterns})")
+
+            if start_datetime:
+                where_clauses.append(f"timestamp >= TIMESTAMP '{start_datetime}'")
+
+            if end_datetime:
+                where_clauses.append(f"timestamp <= TIMESTAMP '{end_datetime}'")
+
+            if option_type:
+                # Filter by call/put in ticker string
+                # Ticker format: O:AAPL251003C00220000 (C/P after 6-digit date)
+                type_char = option_type[0].upper()  # 'C' for call, 'P' for put
+                # Use regex to match digit followed by C or P (more precise than LIKE)
+                where_clauses.append(f"regexp_matches(ticker, '\\d{type_char}')")
+
+            # NOTE: Strike price filtering not supported since it's encoded in ticker
+            # Would need complex string parsing. Use post-processing if needed.
+            if min_strike or max_strike:
+                logger.warning("Strike price filtering not supported for options_minute (encoded in ticker). Ignoring strike filters.")
+
+            if expiration_start or expiration_end:
+                logger.warning("Expiration date filtering not supported for options_minute (encoded in ticker). Ignoring expiration filters.")
+
+            if where_clauses:
+                query_parts.append("WHERE " + " AND ".join(where_clauses))
+
+            # Order and limit
+            query_parts.append("ORDER BY timestamp DESC, ticker")
+
+            if limit:
+                query_parts.append(f"LIMIT {limit}")
+
+            query = "\n".join(query_parts)
+
+            logger.info(f"Querying options minute data for {len(underlying_tickers)} tickers")
+            logger.debug(f"Query: {query}")
+            if not limit and not start_datetime:
+                logger.warning("No time range or limit specified - query may return large dataset")
+
+            # Execute query
+            result = duckdb.sql(query).df()
+
+            logger.info(f"✓ Retrieved {len(result)} rows of minute options data")
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to query options minute data: {e}")
+            raise
+
     def check_data_availability(self) -> dict:
         """
         Check what Parquet data is available
@@ -288,7 +435,8 @@ class ParquetReader:
             },
             "options_minute": {
                 "exists": self.options_minute_path.exists(),
-                "path": str(self.options_minute_path)
+                "path": str(self.options_minute_path),
+                "note": "1-day delayed data from S3 - perfect for historical analysis"
             }
         }
 
