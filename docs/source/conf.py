@@ -13,8 +13,8 @@ sys.path.insert(0, os.path.abspath('../..'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'QuantLab'
-copyright = '2025, QuantLab Team'
-author = 'QuantLab Team'
+copyright = '2025, nittygritty-zzy'
+author = 'nittygritty-zzy'
 release = '0.2.0'
 version = '0.2.0'
 

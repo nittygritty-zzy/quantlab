@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "QuantLab Team", email = "quantlab@example.com"},
+    {name = "nittygritty-zzy", email = "nittygritty-zzy@users.noreply.github.com"},
 ]
 maintainers = [
-    {name = "QuantLab Team", email = "quantlab@example.com"},
+    {name = "nittygritty-zzy", email = "nittygritty-zzy@users.noreply.github.com"},
 ]
 keywords = [
     "quantitative-finance",
