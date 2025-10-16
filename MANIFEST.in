@@ -1,0 +1,13 @@
+include LICENSE
+include README.md
+include pyproject.toml
+recursive-include quantlab *.py
+recursive-include quantlab *.yaml
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+prune tests
+prune docs
+prune scripts
+prune results
+prune notebooks
+prune qlib_repo

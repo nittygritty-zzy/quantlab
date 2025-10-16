@@ -4,22 +4,42 @@ build-backend = "hatchling.build"
 
 [project]
 name = "quantlab"
-version = "0.1.0"
-description = "Quantitative Trading Research Platform - Portfolio management and multi-source options analysis"
+version = "0.2.0"
+description = "Professional quantitative trading research platform with ML-powered backtesting, multi-source options analysis, portfolio management, and interactive Plotly visualizations"
 readme = "README.md"
 requires-python = ">=3.8"
+license = {text = "MIT"}
 authors = [
-    {name = "QuantLab Team"},
+    {name = "QuantLab Team", email = "quantlab@example.com"},
+]
+maintainers = [
+    {name = "QuantLab Team", email = "quantlab@example.com"},
+]
+keywords = [
+    "quantitative-finance",
+    "algorithmic-trading",
+    "portfolio-management",
+    "options-trading",
+    "backtesting",
+    "machine-learning",
+    "qlib",
+    "financial-analysis",
+    "data-visualization",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
 ]
 
 dependencies = [
@@ -35,6 +55,13 @@ dependencies = [
     "yfinance>=0.2.0",
     "requests>=2.31.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/nittygritty-zzy/quantlab"
+Documentation = "https://quantlabs.readthedocs.io"
+Repository = "https://github.com/nittygritty-zzy/quantlab"
+"Bug Tracker" = "https://github.com/nittygritty-zzy/quantlab/issues"
+Changelog = "https://github.com/nittygritty-zzy/quantlab/releases"
 
 [project.optional-dependencies]
 dev = [

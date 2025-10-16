@@ -1,6 +1,13 @@
 # QuantLab - Quantitative Trading Research Platform
 
+[![Documentation Status](https://readthedocs.org/projects/quantlabs/badge/?version=latest)](https://quantlabs.readthedocs.io/en/latest/?badge=latest)
+[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/nittygritty-zzy/quantlab)](https://github.com/nittygritty-zzy/quantlab/releases)
+
 A quantitative trading research platform powered by Microsoft's Qlib, designed for systematic alpha generation and backtesting.
+
+📚 **[Full Documentation](https://quantlabs.readthedocs.io)** | 🚀 **[Quick Start Guide](https://quantlabs.readthedocs.io/en/latest/quickstart.html)** | 📖 **[API Reference](https://quantlabs.readthedocs.io/en/latest/api/core.html)**
 
 ## 📁 Project Structure
 
