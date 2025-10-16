@@ -207,6 +207,161 @@ class PolygonClient:
             logger.error(f"Failed to get options chain for {ticker}: {e}")
             return []
 
+    def get_market_holidays(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[str]:
+        """
+        Get market holidays from Polygon API
+
+        Args:
+            start_date: Start date in YYYY-MM-DD format (default: current year)
+            end_date: End date in YYYY-MM-DD format (default: next year)
+
+        Returns:
+            List of holiday dates in YYYY-MM-DD format
+        """
+        try:
+            # Default to current year through next year if not specified
+            if not start_date:
+                start_date = f"{datetime.now().year}-01-01"
+            if not end_date:
+                end_date = f"{datetime.now().year + 1}-12-31"
+
+            # Use the marketstatus endpoint to get market holidays
+            url = f"https://api.polygon.io/v1/marketstatus/upcoming"
+            params = {"apiKey": self.api_key}
+
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            holidays = []
+            if data and isinstance(data, list):
+                for item in data:
+                    if item.get('status') == 'closed' and item.get('date'):
+                        holidays.append(item['date'])
+
+            logger.info(f"✓ Retrieved {len(holidays)} market holidays from Polygon")
+            return holidays
+
+        except Exception as e:
+            logger.warning(f"Failed to get market holidays from Polygon: {e}, using default US holidays")
+            # Fallback to common US market holidays for current and next year
+            year = datetime.now().year
+            default_holidays = [
+                # Current year
+                f"{year}-01-01",  # New Year's Day
+                f"{year}-01-15",  # MLK Day (approx)
+                f"{year}-02-19",  # Presidents Day (approx)
+                f"{year}-04-07",  # Good Friday (approx)
+                f"{year}-05-27",  # Memorial Day (approx)
+                f"{year}-06-19",  # Juneteenth
+                f"{year}-07-04",  # Independence Day
+                f"{year}-09-02",  # Labor Day (approx)
+                f"{year}-11-28",  # Thanksgiving (approx)
+                f"{year}-12-25",  # Christmas
+                # Next year
+                f"{year+1}-01-01",
+                f"{year+1}-01-20",
+                f"{year+1}-02-17",
+                f"{year+1}-04-18",
+                f"{year+1}-05-26",
+                f"{year+1}-06-19",
+                f"{year+1}-07-04",
+                f"{year+1}-09-01",
+                f"{year+1}-11-27",
+                f"{year+1}-12-25",
+            ]
+            return default_holidays
+
+    def get_intraday_aggregates(
+        self,
+        ticker: str,
+        multiplier: int = 1,
+        timespan: str = "minute",
+        from_date: str = None,
+        to_date: str = None,
+        limit: int = 50000
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get intraday aggregate bars (minute-level data) from Polygon.
+
+        Args:
+            ticker: Stock ticker symbol
+            multiplier: Size of the timespan multiplier (e.g., 1, 5, 15, 30)
+            timespan: Size of the time window ('minute', 'hour')
+            from_date: Start date in YYYY-MM-DD format (default: today)
+            to_date: End date in YYYY-MM-DD format (default: today)
+            limit: Maximum number of results (default: 50000, max: 50000)
+
+        Returns:
+            List of dictionaries with OHLCV data or None
+
+        Example:
+            >>> client.get_intraday_aggregates("AAPL", multiplier=5, timespan="minute")
+            >>> # Get 1 year of 5-minute data
+            >>> client.get_intraday_aggregates("AAPL", multiplier=5, from_date="2024-01-01", to_date="2025-01-01")
+        """
+        try:
+            from datetime import datetime, timedelta
+            import pandas as pd
+
+            # Default to today if not specified
+            if not from_date:
+                from_date = datetime.now().date().isoformat()
+            if not to_date:
+                to_date = datetime.now().date().isoformat()
+
+            logger.info(f"Fetching {multiplier}-{timespan} aggregates for {ticker} from {from_date} to {to_date}")
+
+            # Use Polygon SDK to get aggregates
+            aggs = list(self.client.list_aggs(
+                ticker=ticker,
+                multiplier=multiplier,
+                timespan=timespan,
+                from_=from_date,
+                to=to_date,
+                limit=limit,
+                adjusted=True,
+                sort="asc"
+            ))
+
+            if not aggs:
+                logger.warning(f"No intraday data for {ticker}")
+                return None
+
+            # Convert to list of dicts with timestamps in ET timezone
+            from datetime import timezone
+            import pytz
+
+            # US Eastern timezone
+            et_tz = pytz.timezone('US/Eastern')
+
+            result = []
+            for agg in aggs:
+                # Polygon returns timestamps in milliseconds (UTC)
+                # Convert to ET for proper display and rangebreaks
+                utc_dt = datetime.fromtimestamp(agg.timestamp / 1000, tz=timezone.utc)
+                et_dt = utc_dt.astimezone(et_tz)
+
+                # Convert to naive datetime for consistency with existing code
+                # (Plotly works better with naive datetimes when using rangebreaks)
+                result.append({
+                    "date": et_dt.replace(tzinfo=None),  # Store as naive datetime in ET
+                    "open": agg.open,
+                    "high": agg.high,
+                    "low": agg.low,
+                    "close": agg.close,
+                    "volume": agg.volume,
+                    "vwap": agg.vwap if hasattr(agg, 'vwap') else None,
+                    "transactions": agg.transactions if hasattr(agg, 'transactions') else None,
+                })
+
+            logger.info(f"✓ Retrieved {len(result)} {multiplier}-{timespan} bars for {ticker}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to get intraday aggregates for {ticker}: {e}")
+            return None
+
     def get_technical_indicators(self, ticker: str) -> Optional[Dict[str, Any]]:
         """
         Get technical indicators from Polygon API

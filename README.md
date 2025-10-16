@@ -215,6 +215,10 @@ quantlab analyze ticker ORCL \
 #
 # ✅ Analysis complete → results/orcl_analysis.json
 
+# Visualize price action
+quantlab visualize price ORCL --period 90d --chart-type candlestick
+quantlab visualize price ORCL --period 1year --chart-type line
+
 # Quick decision check
 quantlab lookup get company ORCL
 quantlab lookup get ratings ORCL
@@ -254,6 +258,12 @@ quantlab analyze portfolio tech_giants \
 # ⚠️ Alerts:
 # - NVDA showing weakness (consider reducing position)
 # - MSFT strongest performer (98% of analysts bullish)
+
+# Visualize portfolio performance comparison
+quantlab visualize compare AAPL GOOGL MSFT META AMZN NVDA \
+    --period 90d \
+    --normalize \
+    --output results/tech_giants_comparison.html
 ```
 
 ### 🔎 Use Case 5: Querying Historical Data
@@ -282,6 +292,10 @@ quantlab data query AAPL GOOGL MSFT \
 #
 # Performance: +15.3% YTD
 # Volatility: 18.5% (annualized)
+
+# Visualize historical price patterns
+quantlab visualize price AAPL --period 2year --chart-type candlestick
+quantlab visualize price AAPL --interval 5min --period 5d --chart-type line
 
 # Check available data coverage
 quantlab data check
@@ -413,6 +427,11 @@ quantlab analyze ticker AAPL \
 #
 # 💡 Suggestion: Good conditions for selling premium
 #    IV elevated vs historical - consider covered calls at $190 strike
+
+# Visualize options payoff diagrams
+quantlab visualize options long_call --current-price 181.75 --strike 190 --premium 2.15
+quantlab visualize options bull_call_spread \
+    --current-price 181.75 --strike1 185 --strike2 195 --premium 1.70
 ```
 
 ### 📅 Use Case 9: Regular Portfolio Review
@@ -426,18 +445,26 @@ quantlab lookup refresh portfolio tech_giants
 # Step 2: Get comprehensive analysis
 quantlab analyze portfolio tech_giants --aggregate-metrics
 
-# Step 3: Check for rebalancing needs
+# Step 3: Visualize portfolio performance
+quantlab visualize compare AAPL GOOGL MSFT META AMZN NVDA --period 30d --normalize
+
+# Step 4: Review individual positions
+quantlab visualize price AAPL --period 90d --chart-type candlestick
+quantlab visualize price NVDA --period 90d --chart-type candlestick
+
+# Step 5: Check for rebalancing needs
 quantlab portfolio show tech_giants
 
-# Step 4: Look for new opportunities
+# Step 6: Look for new opportunities
 quantlab data tickers --type stocks_daily | grep -E "^[A-Z]{1,4}$" | head -20
 quantlab analyze ticker CRM --include-fundamentals
+quantlab visualize price CRM --period 90d --chart-type candlestick
 
-# Step 5: Update positions based on analysis
+# Step 7: Update positions based on analysis
 quantlab portfolio update tech_giants NVDA --weight 0.05 --notes "Reduced - valuation concerns"
 quantlab portfolio add tech_giants CRM --weight 0.05 --notes "New position - cloud growth"
 
-# Step 6: Export for records
+# Step 8: Export for records
 quantlab analyze portfolio tech_giants --output results/monthly_review_2025_10.json
 ```
 
@@ -525,11 +552,91 @@ chmod +x scripts/daily_monitor.sh
 **Rank IC**: Near zero - model struggles with relative ranking
 **Sharpe Ratio**: 2.98-4.54 - excellent risk-adjusted returns
 
+## 📊 Visualization Capabilities
+
+QuantLab includes comprehensive interactive visualization tools powered by Plotly.
+
+### Price Charts
+
+```bash
+# Candlestick charts (daily data)
+quantlab visualize price AAPL --period 90d --chart-type candlestick
+
+# Line charts with volume
+quantlab visualize price AAPL --period 1year --chart-type line
+
+# Intraday charts (5min, 15min, 1hour intervals)
+quantlab visualize price AAPL --interval 5min --period 5d --chart-type candlestick
+quantlab visualize price NVDA --interval 1hour --period 30d --chart-type line
+```
+
+**Features:**
+- Multiple timeframes: 1d, 5d, 30d, 90d, 1year, 2year
+- Intraday intervals: 1min, 5min, 15min, 1hour
+- Categorical x-axis for gap-free intraday charts
+- Timezone-aware (US Eastern Time)
+- Regular market hours filtering (9:30 AM - 4:00 PM ET)
+
+**Example Charts:**
+- [Daily Candlestick (90d)](docs/images/price_candlestick_90d.html)
+- [Intraday 5-minute Line](docs/images/price_intraday_5min.html)
+
+### Multi-Ticker Comparison
+
+```bash
+# Compare normalized performance
+quantlab visualize compare AAPL GOOGL MSFT --period 90d --normalize
+
+# Absolute price comparison
+quantlab visualize compare AAPL GOOGL MSFT --period 1year
+```
+
+**Example Chart:**
+- [Normalized Comparison (90d)](docs/images/comparison_normalized.html)
+
+### Options Payoff Diagrams
+
+```bash
+# Single leg strategies
+quantlab visualize options long_call --current-price 180 --strike 190 --premium 2.15
+quantlab visualize options long_put --current-price 180 --strike 175 --premium 2.80
+
+# Spread strategies
+quantlab visualize options bull_call_spread \
+    --current-price 180 --strike1 185 --strike2 195 --premium 1.70
+
+quantlab visualize options iron_condor \
+    --current-price 180 --strike1 170 --strike2 175 --strike3 195 --strike4 200
+```
+
+**Available Strategies:**
+- Single: `long_call`, `long_put`, `short_call`, `short_put`
+- Spreads: `bull_call_spread`, `bear_put_spread`, `iron_condor`, `butterfly`
+- Volatility: `long_straddle`, `short_straddle`, `long_strangle`, `short_strangle`
+
+**Example Chart:**
+- [Bull Call Spread Payoff](docs/images/options_bull_call_spread.html)
+
+### Backtest Results
+
+```bash
+# Visualize backtest performance
+quantlab visualize backtest results/mlruns/[experiment_id]
+```
+
+**Metrics Displayed:**
+- Cumulative returns vs benchmark
+- Drawdown analysis
+- Rolling Sharpe ratio
+- Win/loss distribution
+- Monthly returns heatmap
+
 ## 📚 Documentation
 
 - **[BACKTEST_SUMMARY.md](docs/BACKTEST_SUMMARY.md)** - Comprehensive analysis of backtest results, root cause analysis, and recommendations
 - **[ALPHA158_SUMMARY.md](docs/ALPHA158_SUMMARY.md)** - Overview of Alpha158 features used
 - **[USE_QLIB_ALPHA158.md](docs/USE_QLIB_ALPHA158.md)** - How to use Alpha158 in your strategies
+- **[CLI_VISUALIZATION_GUIDE.md](docs/CLI_VISUALIZATION_GUIDE.md)** - Complete guide to visualization features
 
 ## 🔧 Data Setup
 

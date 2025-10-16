@@ -160,6 +160,95 @@ class DataManager:
             logger.error(f"Failed to get stock price for {ticker}: {e}")
             return None
 
+    def get_intraday_prices(
+        self,
+        ticker: str,
+        interval: str = "1min",
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None,
+        limit: int = 50000,
+        include_extended_hours: bool = False
+    ) -> Optional[Any]:  # Returns pandas DataFrame
+        """
+        Get intraday price data at minute/hour intervals
+
+        Args:
+            ticker: Stock ticker symbol
+            interval: Time interval ('1min', '5min', '15min', '30min', '1hour')
+            from_date: Start date in YYYY-MM-DD format (default: today)
+            to_date: End date in YYYY-MM-DD format (default: today)
+            limit: Maximum number of bars (default: 50000)
+            include_extended_hours: If True, include pre-market and after-hours data.
+                                   If False (default), only include regular market hours (9:30 AM - 4 PM ET)
+
+        Returns:
+            pandas DataFrame with columns: date, open, high, low, close, volume, vwap
+            or None if no data available
+
+        Example:
+            >>> # Get today's 5-minute data (regular hours only)
+            >>> df = data_manager.get_intraday_prices("AAPL", interval="5min")
+            >>> # Get 1 year of 5-minute data including pre/post market
+            >>> df = data_manager.get_intraday_prices("AAPL", interval="5min",
+            ...     from_date="2024-01-01", to_date="2025-01-01", include_extended_hours=True)
+        """
+        try:
+            import pandas as pd
+
+            # Parse interval string to multiplier and timespan
+            interval_map = {
+                "1min": (1, "minute"),
+                "5min": (5, "minute"),
+                "15min": (15, "minute"),
+                "30min": (30, "minute"),
+                "1hour": (1, "hour"),
+            }
+
+            if interval not in interval_map:
+                logger.error(f"Invalid interval: {interval}. Valid options: {list(interval_map.keys())}")
+                return None
+
+            multiplier, timespan = interval_map[interval]
+
+            # Fetch from Polygon API
+            aggregates = self.polygon.get_intraday_aggregates(
+                ticker=ticker,
+                multiplier=multiplier,
+                timespan=timespan,
+                from_date=from_date,
+                to_date=to_date,
+                limit=limit
+            )
+
+            if not aggregates:
+                logger.warning(f"No intraday data for {ticker}")
+                return None
+
+            # Convert to DataFrame
+            df = pd.DataFrame(aggregates)
+
+            # Filter to regular market hours if requested (default)
+            if not include_extended_hours:
+                # Regular US market hours: 9:30 AM - 4:00 PM ET
+                # Keep bars where: (hour > 9 OR (hour == 9 AND minute >= 30)) AND hour < 16
+                original_count = len(df)
+
+                df = df[
+                    ((df['date'].dt.hour > 9) | ((df['date'].dt.hour == 9) & (df['date'].dt.minute >= 30))) &
+                    (df['date'].dt.hour < 16)
+                ].copy()
+
+                filtered_count = original_count - len(df)
+                if filtered_count > 0:
+                    logger.info(f"   Filtered out {filtered_count} extended hours bars (pre-market/after-hours)")
+
+            logger.info(f"✓ Retrieved {len(df)} intraday bars for {ticker} ({interval})")
+            return df
+
+        except Exception as e:
+            logger.error(f"Failed to get intraday prices for {ticker}: {e}")
+            return None
+
     # ===== OPTIONS DATA =====
 
     def get_options_chain(
