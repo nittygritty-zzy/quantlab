@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "quantlab"
+name = "quantlabs"
 version = "0.2.0"
 description = "Professional quantitative trading research platform with ML-powered backtesting, multi-source options analysis, portfolio management, and interactive Plotly visualizations"
 readme = "README.md"

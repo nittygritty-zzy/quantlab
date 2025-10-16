@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/quantlab
+      url: https://pypi.org/project/quantlabs
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
 
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/quantlab
+      url: https://test.pypi.org/project/quantlabs
 
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
