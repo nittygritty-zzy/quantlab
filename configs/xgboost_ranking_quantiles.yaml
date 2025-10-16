@@ -1,0 +1,107 @@
+qlib_init:
+    provider_uri: "/Volumes/sandisk/quantmini-data/data/qlib/stocks_daily"
+    region: cn
+market: &market liquid_stocks
+benchmark: &benchmark SPY
+data_handler_config: &data_handler_config
+    start_time: 2024-01-02
+    end_time: 2025-09-30
+    fit_start_time: 2024-01-02
+    fit_end_time: 2024-08-31
+    instruments: *market
+port_analysis_config: &port_analysis_config
+    strategy:
+        class: TopkDropoutStrategy
+        module_path: qlib.contrib.strategy
+        kwargs:
+            signal: <PRED>
+            topk: 20
+            n_drop: 2
+            only_tradable: true
+            risk_degree: 0.90
+    backtest:
+        start_time: 2024-09-01
+        end_time: 2025-09-30
+        account: 100000000
+        benchmark: *benchmark
+        exchange_kwargs:
+            limit_threshold: 0.095
+            deal_price: close
+            open_cost: 0.0005
+            close_cost: 0.0015
+            min_cost: 5
+task:
+    model:
+        class: XGBModel
+        module_path: qlib.contrib.model.xgboost
+        kwargs:
+            # Try regression with ranking-focused parameters
+            # This optimizes for ordering accuracy rather than magnitude accuracy
+            objective: "reg:squarederror"
+            booster: "gbtree"
+            eval_metric: ["rmse", "mae"]
+
+            # Deeper trees for better ranking
+            max_depth: 12  # Increased from 8
+            min_child_weight: 5  # Require more samples per leaf for stable ranking
+
+            # Stronger regularization to prevent overfitting on magnitude
+            gamma: 0.5  # Increased from 0.1
+            alpha: 500  # Increased L1
+            lambda: 1000  # Increased L2
+
+            # Slower learning for better generalization
+            learning_rate: 0.05  # Reduced from 0.15
+            n_estimators: 300  # More trees to compensate for slow learning
+
+            colsample_bytree: 0.8879
+            subsample: 0.8789
+
+            nthread: 20
+            tree_method: "hist"
+            random_state: 42
+    dataset:
+        class: DatasetH
+        module_path: qlib.data.dataset
+        kwargs:
+            handler:
+                class: Alpha158
+                module_path: qlib.contrib.data.handler
+                kwargs:
+                    <<: *data_handler_config
+                    infer_processors:
+                        - class: ProcessInf
+                          kwargs: {}
+                        - class: ZScoreNorm
+                          kwargs: {}
+                        - class: Fillna
+                          kwargs: {}
+                    learn_processors:
+                        - class: DropnaLabel
+                        - class: ProcessInf
+                          kwargs: {}
+                        # Try CSRankNorm instead of CSZScoreNorm
+                        # This converts returns to cross-sectional ranks (0-1 scale)
+                        # Preserves ranking information better
+                        - class: CSRankNorm
+                          kwargs:
+                              fields_group: label
+            segments:
+                train: [2024-01-02, 2024-06-30]
+                valid: [2024-07-01, 2024-08-31]
+                test: [2024-09-01, 2025-09-30]
+    record:
+        - class: SignalRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            model: <MODEL>
+            dataset: <DATASET>
+        - class: SigAnaRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            ana_long_short: False
+            ann_scaler: 252
+        - class: PortAnaRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            config: *port_analysis_config

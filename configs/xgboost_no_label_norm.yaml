@@ -1,0 +1,98 @@
+qlib_init:
+    provider_uri: "/Volumes/sandisk/quantmini-data/data/qlib/stocks_daily"
+    region: cn
+market: &market liquid_stocks
+benchmark: &benchmark SPY
+data_handler_config: &data_handler_config
+    start_time: 2024-01-02
+    end_time: 2025-09-30
+    fit_start_time: 2024-01-02
+    fit_end_time: 2024-08-31
+    instruments: *market
+port_analysis_config: &port_analysis_config
+    strategy:
+        class: TopkDropoutStrategy
+        module_path: qlib.contrib.strategy
+        kwargs:
+            signal: <PRED>
+            topk: 20
+            n_drop: 2
+            only_tradable: true
+            risk_degree: 0.90
+    backtest:
+        start_time: 2024-09-01
+        end_time: 2025-09-30
+        account: 100000000
+        benchmark: *benchmark
+        exchange_kwargs:
+            limit_threshold: 0.095
+            deal_price: close
+            open_cost: 0.0005
+            close_cost: 0.0015
+            min_cost: 5
+task:
+    model:
+        class: XGBModel
+        module_path: qlib.contrib.model.xgboost
+        kwargs:
+            # XGBoost parameters - same as before
+            objective: "reg:squarederror"
+            booster: "gbtree"
+            eval_metric: ["rmse", "mae"]
+
+            max_depth: 8
+            min_child_weight: 1
+
+            gamma: 0.1
+            alpha: 250
+            lambda: 600
+
+            learning_rate: 0.15
+            colsample_bytree: 0.8879
+            subsample: 0.8789
+
+            nthread: 20
+            tree_method: "hist"
+            random_state: 42
+    dataset:
+        class: DatasetH
+        module_path: qlib.data.dataset
+        kwargs:
+            handler:
+                class: Alpha158
+                module_path: qlib.contrib.data.handler
+                kwargs:
+                    <<: *data_handler_config
+                    infer_processors:
+                        - class: ProcessInf
+                          kwargs: {}
+                        - class: ZScoreNorm
+                          kwargs: {}
+                        - class: Fillna
+                          kwargs: {}
+                    learn_processors:
+                        - class: DropnaLabel
+                        - class: ProcessInf
+                          kwargs: {}
+                        # REMOVED CSZScoreNorm - this was destroying ranking information!
+                        # CSZScoreNorm normalizes labels within each date
+                        # This removes cross-sectional differences needed for ranking
+            segments:
+                train: [2024-01-02, 2024-06-30]
+                valid: [2024-07-01, 2024-08-31]
+                test: [2024-09-01, 2025-09-30]
+    record:
+        - class: SignalRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            model: <MODEL>
+            dataset: <DATASET>
+        - class: SigAnaRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            ana_long_short: False
+            ann_scaler: 252
+        - class: PortAnaRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            config: *port_analysis_config

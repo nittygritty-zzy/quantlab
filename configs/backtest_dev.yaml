@@ -1,0 +1,109 @@
+# QuantLab Backtest: Development Config (Fast Iteration)
+#
+# This config is optimized for SPEED during development:
+# - Small stock universe (5 stocks)
+# - Simpler model (fewer trees, shallow depth)
+# - Technical indicators only (no slow API calls)
+# - Shorter training period
+#
+# Use this for:
+# - Strategy development and testing
+# - Feature engineering experiments
+# - Hyperparameter tuning
+# - Quick validation
+#
+# Expected runtime: 30-60 seconds (vs 10+ minutes for full config)
+#
+# When ready for production, use: backtest_tech_fundamental.yaml
+
+qlib_init:
+  provider_uri: "/Volumes/sandisk/quantmini-data/data/qlib/stocks_daily"
+  region: us
+
+# Small universe: 5 mega-cap tech stocks (high liquidity, easy to test)
+market: &market ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA"]
+benchmark: &benchmark SPY
+
+data_handler_config: &data_handler_config
+  start_time: 2024-06-01      # Shorter history (6 months vs 12)
+  end_time: 2024-12-31
+  instruments: *market
+  feature_names:
+    # Technical indicators only (FAST - from parquet)
+    - polygon_rsi_14
+    - polygon_macd_hist
+    - polygon_sma_20
+    - polygon_sma_50
+    # Uncomment for production (SLOW - API calls):
+    # - yf_pe_ratio
+    # - yf_revenue_growth
+
+port_analysis_config: &port_analysis_config
+  strategy:
+    class: TechFundamentalStrategy
+    module_path: quantlab.backtest.strategies
+    kwargs:
+      signal: <PRED>
+      topk: 3                    # Hold top 3 stocks (was 50)
+      n_drop: 1                  # Replace 1 per period (was 5)
+      rsi_weight: 0.5
+      macd_weight: 0.5
+      fundamental_weight: 0.0    # No fundamentals in dev mode
+  backtest:
+    start_time: 2024-09-01       # 4-month backtest (was 4 months)
+    end_time: 2024-12-31
+    account: 100000000
+    benchmark: *benchmark
+    exchange_kwargs:
+      freq: day
+      limit_threshold: 0.095
+      deal_price: close
+      open_cost: 0.0015
+      close_cost: 0.0015
+      min_cost: 5
+
+task:
+  model:
+    class: LGBModel
+    module_path: qlib.contrib.model.gbdt
+    kwargs:
+      loss: mse
+      colsample_bytree: 0.8
+      learning_rate: 0.05
+      subsample: 0.8
+      lambda_l1: 0.1
+      lambda_l2: 10
+      max_depth: 4                # Simpler model (was 6)
+      num_leaves: 16              # Fewer leaves (was 64)
+      num_threads: 8
+      early_stopping_rounds: 30   # More aggressive (was 50)
+      num_boost_round: 100        # Fewer rounds (was 1000)
+
+  dataset:
+    class: DatasetH
+    module_path: qlib.data.dataset
+    kwargs:
+      handler:
+        class: QuantLabFeatureHandler
+        module_path: quantlab.backtest.handlers
+        kwargs: *data_handler_config
+      segments:
+        train: [2024-06-01, 2024-08-31]   # Shorter train (3 months)
+        valid: [2024-09-01, 2024-10-15]   # Shorter valid (1.5 months)
+        test: [2024-10-16, 2024-12-31]    # Shorter test (2.5 months)
+
+  record:
+    - class: SignalRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        model: <MODEL>
+        dataset: <DATASET>
+    - class: SigAnaRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        ana_long_short: False
+        ann_scaler: 252
+    - class: PortAnaRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        config: *port_analysis_config

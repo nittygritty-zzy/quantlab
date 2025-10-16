@@ -1,0 +1,93 @@
+qlib_init:
+    provider_uri: "/Volumes/sandisk/quantmini-data/data/qlib/stocks_daily"
+    region: cn
+market: &market liquid_stocks
+benchmark: &benchmark SPY
+data_handler_config: &data_handler_config
+    start_time: 2024-01-02
+    end_time: 2025-09-30
+    fit_start_time: 2024-01-02
+    fit_end_time: 2024-08-31
+    instruments: *market
+    infer_processors:
+        - class: RobustZScoreNorm
+          kwargs:
+              fields_group: feature
+              clip_outlier: true
+        - class: Fillna
+          kwargs:
+              fields_group: feature
+    learn_processors:
+        - class: DropnaLabel
+        - class: CSRankNorm
+          kwargs:
+              fields_group: label
+    label: ["Ref($close, -2) / Ref($close, -1) - 1"]
+port_analysis_config: &port_analysis_config
+    strategy:
+        class: TopkDropoutStrategy
+        module_path: qlib.contrib.strategy
+        kwargs:
+            signal: <PRED>
+            topk: 20
+            n_drop: 2
+            only_tradable: true
+            risk_degree: 0.90
+    backtest:
+        start_time: 2024-09-01
+        end_time: 2025-09-30
+        account: 100000000
+        benchmark: *benchmark
+        exchange_kwargs:
+            limit_threshold: 0.095
+            deal_price: close
+            open_cost: 0.0005
+            close_cost: 0.0015
+            min_cost: 5
+task:
+    model:
+        class: HIST
+        module_path: qlib.contrib.model.pytorch_hist
+        kwargs:
+            d_feat: 6           # 6 feature types: close, open, high, low, vwap, volume
+            hidden_size: 64
+            num_layers: 2
+            dropout: 0.0
+            n_epochs: 200
+            lr: 0.0001          # 1e-4
+            early_stop: 20
+            metric: ic
+            loss: mse
+            base_model: GRU     # Using GRU (can also be LSTM)
+            model_path: null    # No pretrained model
+            stock2concept: "/Users/zheyuanzhao/workspace/polygon_api/qlib_utils/stock2concept/data/stock2concept_liquid_stocks.npy"
+            stock_index: "/Users/zheyuanzhao/workspace/polygon_api/qlib_utils/stock2concept/data/stock_index_liquid_stocks.npy"
+            GPU: -1             # CPU mode (MPS not fully supported by HIST)
+            seed: 42
+    dataset:
+        class: DatasetH
+        module_path: qlib.data.dataset
+        kwargs:
+            handler:
+                class: Alpha360
+                module_path: qlib.contrib.data.handler
+                kwargs: *data_handler_config
+            segments:
+                train: [2024-01-02, 2024-06-30]
+                valid: [2024-07-01, 2024-08-31]
+                test: [2024-09-01, 2025-09-30]
+    record:
+        - class: SignalRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            model: <MODEL>
+            dataset: <DATASET>
+        - class: SigAnaRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            ana_long_short: False
+            ann_scaler: 252
+        - class: PortAnaRecord
+          module_path: qlib.workflow.record_temp
+          kwargs:
+            config: *port_analysis_config

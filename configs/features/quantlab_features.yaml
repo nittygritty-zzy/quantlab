@@ -1,0 +1,93 @@
+# QuantLab Feature Configuration
+# 
+# Features available from QuantLab data sources:
+# - Technical indicators (Polygon API)
+# - Fundamental metrics (yfinance)
+# - Sentiment scores (Alpha Vantage)
+
+features:
+  # === Technical Indicators (Polygon API) ===
+  # Real-time/historical technical analysis indicators
+  technical:
+    - polygon_sma_20          # 20-day Simple Moving Average
+    - polygon_sma_50          # 50-day Simple Moving Average
+    - polygon_ema_12          # 12-day Exponential Moving Average
+    - polygon_ema_26          # 26-day Exponential Moving Average
+    - polygon_rsi_14          # 14-day Relative Strength Index
+    - polygon_macd_line       # MACD line
+    - polygon_macd_signal     # MACD signal line
+    - polygon_macd_hist       # MACD histogram
+
+  # === Fundamental Metrics (yfinance) ===
+  # Company fundamentals and analyst data
+  fundamental:
+    - yf_pe_ratio             # Trailing P/E ratio
+    - yf_forward_pe           # Forward P/E ratio
+    - yf_peg_ratio            # PEG ratio (P/E to Growth)
+    - yf_profit_margin        # Net profit margin
+    - yf_roe                  # Return on Equity
+    - yf_revenue_growth       # Revenue growth (YoY)
+    - yf_earnings_growth      # Earnings growth (YoY)
+    - yf_price_to_book        # Price-to-Book ratio
+    - yf_debt_to_equity       # Debt-to-Equity ratio
+
+  # === Sentiment Indicators (Alpha Vantage) ===
+  # News sentiment analysis
+  sentiment:
+    - av_sentiment_score      # Sentiment score (-1 to 1)
+    - av_articles_positive    # Count of positive articles
+    - av_articles_negative    # Count of negative articles
+    - av_relevance           # Average article relevance score
+
+# === Feature Groups ===
+# Predefined combinations for common strategies
+
+feature_groups:
+  # Technical-only strategy
+  tech_only:
+    - polygon_sma_20
+    - polygon_sma_50
+    - polygon_rsi_14
+    - polygon_macd_hist
+
+  # Tech + Fundamentals strategy
+  tech_fundamental:
+    - polygon_rsi_14
+    - polygon_macd_hist
+    - yf_pe_ratio
+    - yf_revenue_growth
+
+  # Sentiment momentum strategy
+  sentiment_momentum:
+    - polygon_sma_20
+    - polygon_rsi_14
+    - av_sentiment_score
+    - av_articles_positive
+
+  # Full feature set
+  all_features:
+    - polygon_sma_20
+    - polygon_sma_50
+    - polygon_ema_12
+    - polygon_ema_26
+    - polygon_rsi_14
+    - polygon_macd_line
+    - polygon_macd_signal
+    - polygon_macd_hist
+    - yf_pe_ratio
+    - yf_forward_pe
+    - yf_revenue_growth
+    - av_sentiment_score
+
+# === Data Quality Settings ===
+quality:
+  # Fill missing values
+  fill_na: true
+  fill_method: "forward"  # forward, backward, or interpolate
+
+  # Outlier handling
+  outlier_clip: true
+  outlier_std: 3.0        # Clip values beyond N standard deviations
+
+  # Minimum data coverage
+  min_coverage: 0.8       # Require 80% non-null values

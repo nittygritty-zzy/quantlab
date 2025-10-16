@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Volumes/sandisk/quantmini-data/**)",
+      "Bash(uv run:*)",
+      "Read(//Users/zheyuanzhao/workspace/quantmini/scripts/**)",
+      "Read(//Users/zheyuanzhao/workspace/quantmini/**)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(pip show:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(uv sync:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

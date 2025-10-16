@@ -1,0 +1,20 @@
+hardware:
+  cpu_cores: 10
+  cpu_threads: 10
+  memory_gb: 24.0
+  available_memory_gb: 9.974563598632812
+  platform: Darwin
+  processor: arm
+  architecture: arm64
+  is_apple_silicon: true
+storage:
+  disk_free_gb: 380.1261100769043
+  disk_total_gb: 460.4317207336426
+  disk_type: SSD
+recommended_mode: streaming
+resource_limits:
+  max_memory_gb: 14
+  chunk_size: 10000
+  max_workers: 2
+  max_concurrent_downloads: 2
+  parquet_row_group_size: 50000

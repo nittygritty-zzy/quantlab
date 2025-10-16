@@ -1,0 +1,354 @@
+# ================================================================
+# QuantLab - Professional .gitignore
+# ================================================================
+# This file protects sensitive data, API keys, and large datasets
+# while making the project suitable for professional git hosting
+# ================================================================
+
+# ================================================================
+# SENSITIVE DATA - API Keys, Tokens, Credentials
+# ================================================================
+# Never commit these files - they contain personal access tokens
+
+# Environment files (API keys, secrets)
+.env
+.env.*
+!.env.example
+*.env
+.envrc
+
+# Credentials and API tokens
+*credentials.json
+*secrets.json
+*api_keys.json
+*tokens.json
+config/credentials/
+config/secrets/
+
+# Personal configuration files
+.quantlab.local
+*.local.yaml
+*_local.yaml
+config/*_local.yaml
+
+# API provider configs with keys
+polygon_config.json
+alphavantage_config.json
+yfinance_config.json
+
+# ================================================================
+# LARGE DATA DIRECTORIES
+# ================================================================
+# Exclude all data files - they should be generated locally
+
+# External data mount point (SanDisk drive)
+/Volumes/sandisk/
+
+# Local data directories (root level only - not quantlab/data/ source code)
+/data/
+!/data/.gitkeep
+/data/parquet/
+/data/qlib/
+/data/raw/
+/data/processed/
+/data/metadata/
+/data/duckdb/
+*.duckdb
+*.duckdb-wal
+*.duckdb-shm
+
+# Cache directories
+data/indicators_cache/
+data/sentiment_cache/
+data/fundamentals_cache/
+*_cache/
+*.cache
+
+# Parquet files (can be large)
+*.parquet
+*.parquet.gzip
+
+# CSV files (generated data)
+data/*.csv
+results/*.csv
+
+# ================================================================
+# QLIB AND MICROSOFT QLIB REPO
+# ================================================================
+# Qlib repo is 828MB - don't commit it
+# Use patches/ to store modifications instead
+
+qlib_repo/
+qlib_data/
+.qlib/
+mlruns/
+
+# Qlib logs and temp files
+*.qlib.log
+qlib_*.log
+
+# EXCEPTION: Keep patches directory
+!patches/
+!patches/*.patch
+!patches/README.md
+
+# ================================================================
+# PYTHON
+# ================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# ================================================================
+# VIRTUAL ENVIRONMENTS
+# ================================================================
+
+.venv/
+venv/
+ENV/
+env/
+.env/
+env.bak/
+venv.bak/
+pythonenv*/
+
+# UV (Python package manager)
+.uv/
+uv.lock
+
+# Poetry
+poetry.lock
+
+# ================================================================
+# JUPYTER NOTEBOOKS
+# ================================================================
+
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Jupyter Notebook temp files
+.jupyter/
+jupyter_notebook_config.py
+
+# ================================================================
+# MLFLOW / EXPERIMENT RESULTS
+# ================================================================
+
+# MLflow tracking data (can be very large)
+results/mlruns/
+mlruns/
+!mlruns/.gitkeep
+
+# MLflow trash
+results/mlruns/.trash/
+.trash/
+
+# Model artifacts (can be large)
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+models/*.pkl
+models/*.joblib
+
+# Large result files
+results/*.parquet
+results/*.csv
+results/*.json
+!results/.gitkeep
+
+# ================================================================
+# IDE AND EDITORS
+# ================================================================
+
+# VSCode
+.vscode/
+.vscode/*
+!.vscode/settings.json.example
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ================================================================
+# OPERATING SYSTEM
+# ================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+.nfs*
+
+# ================================================================
+# LOGS AND TEMPORARY FILES
+# ================================================================
+
+# Log files
+*.log
+logs/
+*.log.*
+log_*.txt
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# ================================================================
+# BACKTEST OUTPUT AND ANALYSIS REPORTS
+# ================================================================
+
+# Generated analysis reports (can be regenerated)
+results/analysis_runs/
+results/reports/
+results/backtest_*.md
+results/*_analysis.json
+results/*_report.json
+
+# Scratch files and test outputs
+scratch/
+test_output/
+*_scratch.py
+*_test_output.py
+
+# ================================================================
+# PROJECT-SPECIFIC EXCLUDES
+# ================================================================
+
+# Old/archived experimental files (already in docs/archive/)
+# Keep docs/archive/ in git for historical reference
+
+# Generated documentation (if auto-generated)
+docs/api/
+docs/_build/
+
+# Lock files (optional - uncomment if needed)
+# uv.lock
+# poetry.lock
+# Pipfile.lock
+
+# ================================================================
+# KEEP THESE IMPORTANT FILES
+# ================================================================
+# Use negation patterns to ensure critical files are tracked
+
+# Keep example configs
+!configs/*.yaml.example
+!configs/*.json.example
+
+# Keep project structure documentation
+!PROJECT_STRUCTURE.md
+!README.md
+!QUICKSTART.md
+
+# Keep .gitkeep files in empty directories
+!.gitkeep
+!**/.gitkeep
+
+# Keep CI/CD configs
+!.github/
+!.gitlab-ci.yml
+
+# Keep Claude Code project memory
+!.claude/
+!.claude/PROJECT_MEMORY.md
+!.claude/CLAUDE.md
+
+# ================================================================
+# END OF .GITIGNORE
+# ================================================================

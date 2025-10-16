@@ -1,0 +1,94 @@
+# QuantLab Backtest: Mean Reversion Strategy
+
+qlib_init:
+  provider_uri: "/Volumes/sandisk/quantmini-data/data/qlib/stocks_daily"
+  region: us
+
+# Top 50 liquid US stocks by market cap and volume
+market: &market [
+  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B", "UNH", "XOM",
+  "JNJ", "JPM", "V", "PG", "MA", "HD", "CVX", "LLY", "ABBV", "MRK",
+  "AVGO", "PEP", "COST", "KO", "ADBE", "WMT", "MCD", "CSCO", "CRM", "ACN",
+  "TMO", "ABT", "NFLX", "DHR", "CMCSA", "VZ", "NKE", "DIS", "TXN", "INTC",
+  "AMD", "QCOM", "UPS", "PM", "NEE", "RTX", "HON", "ORCL", "INTU", "AMGN"
+]
+benchmark: &benchmark SPY
+
+data_handler_config: &data_handler_config
+  start_time: 2024-01-01
+  end_time: 2024-12-31
+  instruments: *market
+  feature_names:
+    - polygon_rsi_14
+    - polygon_sma_20
+
+port_analysis_config: &port_analysis_config
+  strategy:
+    class: MeanReversionOptionsStrategy
+    module_path: quantlab.backtest.strategies
+    kwargs:
+      signal: <PRED>
+      topk: 30
+      n_drop: 3
+      rsi_oversold: 30
+      rsi_overbought: 70
+      stop_loss_pct: 0.10
+      min_hold_days: 2
+  backtest:
+    start_time: 2024-09-01
+    end_time: 2024-12-31
+    account: 100000000
+    benchmark: *benchmark
+    exchange_kwargs:
+      freq: day
+      limit_threshold: 0.095
+      deal_price: close
+      open_cost: 0.0015
+      close_cost: 0.0015
+      min_cost: 5
+
+task:
+  model:
+    class: LGBModel
+    module_path: qlib.contrib.model.gbdt
+    kwargs:
+      loss: mse
+      colsample_bytree: 0.8
+      learning_rate: 0.05
+      subsample: 0.8
+      lambda_l1: 0.1
+      lambda_l2: 10
+      max_depth: 6
+      num_leaves: 64
+      num_threads: 8
+      early_stopping_rounds: 50
+      num_boost_round: 1000
+
+  dataset:
+    class: DatasetH
+    module_path: qlib.data.dataset
+    kwargs:
+      handler:
+        class: QuantLabFeatureHandler
+        module_path: quantlab.backtest.handlers
+        kwargs: *data_handler_config
+      segments:
+        train: [2024-01-01, 2024-06-30]
+        valid: [2024-07-01, 2024-08-31]
+        test: [2024-09-01, 2024-12-31]
+
+  record:
+    - class: SignalRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        model: <MODEL>
+        dataset: <DATASET>
+    - class: SigAnaRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        ana_long_short: False
+        ann_scaler: 252
+    - class: PortAnaRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        config: *port_analysis_config
