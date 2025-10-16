@@ -234,6 +234,9 @@ results/*.json
 *.sublime-project
 *.sublime-workspace
 
+# Claude Code
+.claude/
+
 # ================================================================
 # OPERATING SYSTEM
 # ================================================================
@@ -343,11 +346,6 @@ docs/_build/
 # Keep CI/CD configs
 !.github/
 !.gitlab-ci.yml
-
-# Keep Claude Code project memory
-!.claude/
-!.claude/PROJECT_MEMORY.md
-!.claude/CLAUDE.md
 
 # ================================================================
 # END OF .GITIGNORE
