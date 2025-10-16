@@ -1,5 +1,6 @@
 # QuantLab - Quantitative Trading Research Platform
 
+[![PyPI version](https://img.shields.io/pypi/v/quantlabs.svg)](https://pypi.org/project/quantlabs/)
 [![Documentation Status](https://readthedocs.org/projects/quantlabs/badge/?version=latest)](https://quantlabs.readthedocs.io/en/latest/?badge=latest)
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -63,18 +64,36 @@ quantlab/
 
 ## 🚀 Quick Start
 
-### 1. Setup Environment
+### Installation from PyPI
 
 ```bash
+# Install from PyPI
+pip install quantlabs
+
+# Or using uv (recommended)
+uv pip install quantlabs
+
+# Verify installation
+quantlab --version
+quantlab --help
+```
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/nittygritty-zzy/quantlab.git
+cd quantlab
+
 # Using uv (recommended)
 uv venv
 source .venv/bin/activate
-uv pip install qlib
+uv sync
 
 # Or using pip
 python -m venv .venv
 source .venv/bin/activate
-pip install qlib
+pip install -e .
 ```
 
 ### 2. Prepare Data
