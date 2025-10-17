@@ -6,6 +6,7 @@ without importing into the database.
 """
 
 import duckdb
+import threading
 from pathlib import Path
 from typing import Optional, List
 from datetime import date, datetime
@@ -40,9 +41,31 @@ class ParquetReader:
         self.options_daily_path = self.parquet_root / "options_daily"
         self.options_minute_path = self.parquet_root / "options_minute"
 
+        # Thread-local storage for DuckDB connections (one per thread)
+        self._local = threading.local()
+
+        # Main connection for single-threaded operations
+        self.conn = self._create_connection()
+
         # Verify paths exist
         if not self.parquet_root.exists():
             logger.warning(f"Parquet root does not exist: {self.parquet_root}")
+
+    def _create_connection(self):
+        """Create a new DuckDB connection with optimal settings"""
+        conn = duckdb.connect(":memory:")
+        # Limit threads per connection to reduce file handle usage
+        conn.execute("SET threads TO 2")
+        # Set memory limit to encourage DuckDB to close files sooner
+        conn.execute("SET memory_limit = '2GB'")
+        return conn
+
+    def _get_connection(self):
+        """Get thread-local DuckDB connection"""
+        if not hasattr(self._local, 'conn') or self._local.conn is None:
+            self._local.conn = self._create_connection()
+            logger.debug(f"Created new DuckDB connection for thread {threading.current_thread().name}")
+        return self._local.conn
 
     def get_stock_daily(
         self,
@@ -73,9 +96,18 @@ class ParquetReader:
                 "SELECT symbol as ticker, date, open, high, low, close, volume"
             ]
 
-            # Use glob pattern to read all parquet files (including partitioned directories)
-            parquet_pattern = str(self.stocks_daily_path / "**/*.parquet")
-            query_parts.append(f"FROM '{parquet_pattern}'")
+            # Build more specific glob pattern if date range is provided
+            # This prevents DuckDB from opening thousands of unnecessary files
+            if start_date and end_date:
+                # Get year range
+                years = range(start_date.year, end_date.year + 1)
+                patterns = [str(self.stocks_daily_path / f"year={year}/**/*.parquet") for year in years]
+                pattern_list = ", ".join(f"'{p}'" for p in patterns)
+                query_parts.append(f"FROM read_parquet([{pattern_list}])")
+            else:
+                # Fall back to full scan if no date filter
+                parquet_pattern = str(self.stocks_daily_path / "**/*.parquet")
+                query_parts.append(f"FROM '{parquet_pattern}'")
 
             # Add filters
             where_clauses = []
@@ -104,8 +136,9 @@ class ParquetReader:
             logger.info(f"Querying stock daily data for {len(tickers)} tickers")
             logger.debug(f"Query: {query}")
 
-            # Execute query
-            result = duckdb.sql(query).df()
+            # Execute query using thread-local connection
+            conn = self._get_connection()
+            result = conn.execute(query).df()
 
             logger.info(f"✓ Retrieved {len(result)} rows of stock data")
             return result
@@ -145,8 +178,15 @@ class ParquetReader:
                 "SELECT *"
             ]
 
-            parquet_pattern = str(self.options_daily_path / "**/*.parquet")
-            query_parts.append(f"FROM '{parquet_pattern}'")
+            # Build more specific glob pattern if date range is provided
+            if start_date and end_date:
+                years = range(start_date.year, end_date.year + 1)
+                patterns = [str(self.options_daily_path / f"year={year}/**/*.parquet") for year in years]
+                pattern_list = ", ".join(f"'{p}'" for p in patterns)
+                query_parts.append(f"FROM read_parquet([{pattern_list}])")
+            else:
+                parquet_pattern = str(self.options_daily_path / "**/*.parquet")
+                query_parts.append(f"FROM '{parquet_pattern}'")
 
             # Add filters
             where_clauses = []
@@ -177,8 +217,9 @@ class ParquetReader:
 
             logger.info(f"Querying options daily data for {len(underlying_tickers)} tickers")
 
-            # Execute query
-            result = duckdb.sql(query).df()
+            # Execute query using thread-local connection
+            conn = self._get_connection()
+            result = conn.execute(query).df()
 
             logger.info(f"✓ Retrieved {len(result)} rows of options data")
             return result
@@ -217,7 +258,8 @@ class ParquetReader:
             else:
                 query = f"SELECT DISTINCT underlying_ticker FROM '{parquet_pattern}' ORDER BY underlying_ticker"
 
-            result = duckdb.sql(query).df()
+            conn = self._get_connection()
+            result = conn.execute(query).df()
 
             tickers = result.iloc[:, 0].tolist()
             logger.info(f"✓ Found {len(tickers)} unique tickers in {data_type}")
@@ -253,7 +295,8 @@ class ParquetReader:
             parquet_pattern = str(data_path / "**/*.parquet")
             query = f"SELECT MIN(date) as min_date, MAX(date) as max_date FROM '{parquet_pattern}'"
 
-            result = duckdb.sql(query).df()
+            conn = self._get_connection()
+            result = conn.execute(query).df()
 
             min_date = result['min_date'].iloc[0]
             max_date = result['max_date'].iloc[0]
@@ -403,8 +446,9 @@ class ParquetReader:
             if not limit and not start_datetime:
                 logger.warning("No time range or limit specified - query may return large dataset")
 
-            # Execute query
-            result = duckdb.sql(query).df()
+            # Execute query using thread-local connection
+            conn = self._get_connection()
+            result = conn.execute(query).df()
 
             logger.info(f"✓ Retrieved {len(result)} rows of minute options data")
             return result
@@ -412,6 +456,91 @@ class ParquetReader:
         except Exception as e:
             logger.error(f"Failed to query options minute data: {e}")
             raise
+
+    def get_tickers_with_recent_data(
+        self,
+        days_back: int = 7,
+        min_rows: int = 50
+    ) -> List[str]:
+        """
+        Get tickers that have recent data (useful for screening)
+
+        Args:
+            days_back: How many days back to check (default: 7)
+            min_rows: Minimum number of rows required (default: 50 for technical indicators)
+
+        Returns:
+            List of ticker symbols with sufficient recent data
+        """
+        if not self.stocks_daily_path.exists():
+            logger.error(f"Stock daily path does not exist: {self.stocks_daily_path}")
+            return []
+
+        try:
+            from datetime import datetime, timedelta
+            cutoff_date = (datetime.now() - timedelta(days=days_back)).date()
+
+            parquet_pattern = str(self.stocks_daily_path / "**/*.parquet")
+
+            query = f"""
+            SELECT symbol, COUNT(*) as row_count
+            FROM '{parquet_pattern}'
+            WHERE date >= '{cutoff_date}'
+            GROUP BY symbol
+            HAVING COUNT(*) >= {min_rows}
+            ORDER BY symbol
+            """
+
+            conn = self._get_connection()
+            result = conn.execute(query).df()
+
+            tickers = result['symbol'].tolist()
+            logger.info(f"✓ Found {len(tickers)} tickers with recent data (>= {min_rows} rows in last {days_back} days)")
+
+            return tickers
+
+        except Exception as e:
+            logger.error(f"Failed to get tickers with recent data: {e}")
+            return []
+
+    def get_stock_daily_batch(
+        self,
+        tickers: List[str],
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        batch_size: int = 100
+    ):
+        """
+        Query daily stock data for multiple tickers in batches
+
+        This is more efficient than calling get_stock_daily() for each ticker individually.
+
+        Args:
+            tickers: List of ticker symbols
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            batch_size: Number of tickers to query per batch (default: 100)
+
+        Returns:
+            Dictionary mapping ticker to DataFrame
+        """
+        results = {}
+
+        # Process tickers in batches
+        for i in range(0, len(tickers), batch_size):
+            batch_tickers = tickers[i:i + batch_size]
+
+            # Query the batch
+            df = self.get_stock_daily(batch_tickers, start_date, end_date)
+
+            if df is not None and not df.empty:
+                # Split results by ticker
+                for ticker in batch_tickers:
+                    ticker_data = df[df['ticker'] == ticker]
+                    if not ticker_data.empty:
+                        results[ticker] = ticker_data
+
+        return results
 
     def check_data_availability(self) -> dict:
         """
@@ -449,3 +578,18 @@ class ParquetReader:
                 info["tickers"] = len(self.get_available_tickers(data_type))
 
         return availability
+
+    def __getstate__(self):
+        """Exclude DuckDB connections from pickle"""
+        state = self.__dict__.copy()
+        # Remove the unpickleable DuckDB connections
+        state.pop('conn', None)
+        state.pop('_local', None)
+        return state
+
+    def __setstate__(self, state):
+        """Restore DuckDB connections after unpickling"""
+        self.__dict__.update(state)
+        # Recreate thread-local storage and main connection
+        self._local = threading.local()
+        self.conn = self._create_connection()

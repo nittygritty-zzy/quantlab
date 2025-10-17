@@ -303,11 +303,19 @@ results/backtest_*.md
 results/*_analysis.json
 results/*_report.json
 
+# HTML visualization outputs (can be regenerated)
+results/*.html
+
 # Scratch files and test outputs
 scratch/
 test_output/
 *_scratch.py
 *_test_output.py
+scripts/tests/
+
+# Root-level test files
+conftest.py
+VISUALIZATION_AUDIT_REPORT.md
 
 # ================================================================
 # PROJECT-SPECIFIC EXCLUDES

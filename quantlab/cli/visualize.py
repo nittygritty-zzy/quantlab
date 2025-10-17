@@ -650,3 +650,199 @@ def _calculate_technical_indicators(df):
     df['bb_lower'] = df['bb_middle'] - (2 * std)
 
     return df.dropna()
+
+
+# ============================================================================
+# Screener Visualization Commands (Phase 5)
+# ============================================================================
+
+@visualize.command('screen-backtest')
+@click.option('--input', 'input_path', type=click.Path(exists=True), required=True,
+              help='Input JSON file from screen backtest')
+@click.option('--output', type=click.Path(), help='Output HTML file path')
+def visualize_screen_backtest(input_path, output):
+    """
+    Visualize screen backtest results with performance charts
+
+    Creates comprehensive HTML report with:
+    - Cumulative returns vs benchmark
+    - Drawdown chart
+    - Rolling Sharpe ratio
+    - Performance metrics dashboard
+    - Returns distribution
+    - Win rate analysis
+
+    Examples:
+        # Backtest and visualize
+        quantlab screen backtest --saved-id my_oversold \\
+            --start-date 2025-01-01 --end-date 2025-10-01 \\
+            --output backtest.json
+
+        quantlab visualize screen-backtest --input backtest.json \\
+            --output backtest_report.html
+    """
+    try:
+        from ..core.screen_visualizer import visualize_backtest_from_file
+
+        click.echo(f"\n📊 Creating screen backtest visualization...\n")
+
+        # Generate output path
+        if not output:
+            input_file = Path(input_path)
+            output = f"results/screen_backtest_{input_file.stem}.html"
+
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create visualization
+        visualize_backtest_from_file(input_path, str(output_path))
+
+        click.echo(f"✓ Backtest visualization saved to: {output_path}")
+        click.echo(f"   Open in browser to view comprehensive report")
+
+    except Exception as e:
+        click.echo(f"❌ Visualization failed: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+
+
+@visualize.command('screen-comparison')
+@click.option('--input', 'input_path', type=click.Path(exists=True), required=True,
+              help='Input JSON file from screen comparison')
+@click.option('--output', type=click.Path(), help='Output HTML file path')
+def visualize_screen_comparison(input_path, output):
+    """
+    Visualize screen comparison results
+
+    Creates comprehensive HTML report with:
+    - Screen overlap analysis
+    - Consensus picks table
+    - Sector distribution comparison
+    - Screen size comparison
+
+    Examples:
+        # Compare and visualize
+        quantlab screen compare-multi \\
+            --saved oversold --saved momentum --saved value \\
+            --output comparison.json
+
+        quantlab visualize screen-comparison --input comparison.json \\
+            --output comparison_report.html
+    """
+    try:
+        from ..core.screen_visualizer import visualize_comparison_from_file
+
+        click.echo(f"\n📊 Creating screen comparison visualization...\n")
+
+        # Generate output path
+        if not output:
+            input_file = Path(input_path)
+            output = f"results/screen_comparison_{input_file.stem}.html"
+
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create visualization
+        visualize_comparison_from_file(input_path, str(output_path))
+
+        click.echo(f"✓ Comparison visualization saved to: {output_path}")
+        click.echo(f"   Open in browser to view comprehensive report")
+
+    except Exception as e:
+        click.echo(f"❌ Visualization failed: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+
+
+@visualize.command('screen-results')
+@click.option('--input', 'input_path', type=click.Path(exists=True), required=True,
+              help='Input JSON file from screening')
+@click.option('--output', type=click.Path(), help='Output HTML file path')
+def visualize_screen_results(input_path, output):
+    """
+    Visualize screening results with distribution charts
+
+    Creates comprehensive HTML report with:
+    - Sector distribution pie chart
+    - Industry breakdown
+    - Price vs volume scatter plot
+    - Metric distribution histograms
+
+    Examples:
+        # Screen and visualize
+        quantlab screen run --rsi-max 30 --volume-min 1000000 \\
+            --output screening.json
+
+        quantlab visualize screen-results --input screening.json \\
+            --output screening_report.html
+    """
+    try:
+        from ..core.screen_visualizer import visualize_results_from_file
+
+        click.echo(f"\n📊 Creating screening results visualization...\n")
+
+        # Generate output path
+        if not output:
+            input_file = Path(input_path)
+            output = f"results/screen_results_{input_file.stem}.html"
+
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create visualization
+        visualize_results_from_file(input_path, str(output_path))
+
+        click.echo(f"✓ Screening results visualization saved to: {output_path}")
+        click.echo(f"   Open in browser to view comprehensive report")
+
+    except Exception as e:
+        click.echo(f"❌ Visualization failed: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+
+
+@visualize.command('screen-alerts')
+@click.option('--input', 'input_path', type=click.Path(exists=True), required=True,
+              help='Input JSON file with watch mode alerts')
+@click.option('--output', type=click.Path(), help='Output HTML file path')
+def visualize_screen_alerts(input_path, output):
+    """
+    Visualize watch mode alerts
+
+    Creates comprehensive HTML report with:
+    - Alert timeline
+    - Alert type breakdown
+    - Ticker frequency heatmap
+    - Daily alert count chart
+
+    Examples:
+        # Export and visualize alerts
+        quantlab screen watch-monitor alerts --since-hours 168 \\
+            --output alerts.json
+
+        quantlab visualize screen-alerts --input alerts.json \\
+            --output alerts_report.html
+    """
+    try:
+        from ..core.screen_visualizer import visualize_alerts_from_file
+
+        click.echo(f"\n📊 Creating watch mode alerts visualization...\n")
+
+        # Generate output path
+        if not output:
+            input_file = Path(input_path)
+            output = f"results/screen_alerts_{input_file.stem}.html"
+
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create visualization
+        visualize_alerts_from_file(input_path, str(output_path))
+
+        click.echo(f"✓ Alerts visualization saved to: {output_path}")
+        click.echo(f"   Open in browser to view comprehensive report")
+
+    except Exception as e:
+        click.echo(f"❌ Visualization failed: {e}", err=True)
+        import traceback
+        traceback.print_exc()

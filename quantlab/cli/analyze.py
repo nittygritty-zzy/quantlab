@@ -4,7 +4,9 @@ Analysis CLI commands
 
 import click
 import json
-from datetime import datetime
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -21,8 +23,10 @@ def analyze():
 @click.option('--no-sentiment', is_flag=True, help='Skip sentiment analysis')
 @click.option('--no-technicals', is_flag=True, help='Skip technical indicators')
 @click.option('--output', type=click.Path(), help='Save analysis to JSON file')
+@click.option('--chart', type=click.Path(), help='Generate technical chart and save to HTML file')
+@click.option('--chart-days', type=int, default=90, help='Number of days for chart (default: 90)')
 @click.pass_context
-def analyze_ticker(ctx, ticker, no_options, no_fundamentals, no_sentiment, no_technicals, output):
+def analyze_ticker(ctx, ticker, no_options, no_fundamentals, no_sentiment, no_technicals, output, chart, chart_days):
     """
     Analyze a single ticker with multi-source data
 
@@ -62,6 +66,17 @@ def analyze_ticker(ctx, ticker, no_options, no_fundamentals, no_sentiment, no_te
                 json.dump(result, f, indent=2, default=str)
 
             click.echo(f"\n💾 Analysis saved to: {output_path}")
+
+        # Generate chart if requested
+        if chart:
+            try:
+                click.echo(f"\n📊 Generating technical chart...")
+                _generate_technical_chart(ctx, ticker, chart, chart_days)
+                click.echo(f"📈 Chart saved to: {chart}")
+                click.echo(f"   Open in browser to view interactive chart")
+            except Exception as chart_error:
+                click.echo(f"⚠️  Chart generation failed: {chart_error}", err=True)
+                click.echo(f"   Analysis completed successfully, but chart could not be generated")
 
     except Exception as e:
         click.echo(f"❌ Analysis failed: {e}", err=True)
@@ -268,3 +283,75 @@ def _display_portfolio_analysis(result):
             click.echo(f"   {ticker}: {price_str} | Recommendation: {rec}")
         else:
             click.echo(f"   {ticker}: Error - {analysis.get('error', 'Unknown')}")
+
+
+def _generate_technical_chart(ctx, ticker, chart_path, days=90):
+    """Generate technical analysis chart for a ticker"""
+    from ..visualization import create_technical_dashboard, save_figure
+
+    # Get data manager from analyzer
+    analyzer = ctx.obj['analyzer']
+    data_manager = analyzer.data
+
+    # Calculate date range
+    end_date = datetime.now().date()
+    start_date = end_date - timedelta(days=days)
+
+    # Fetch historical data using parquet reader
+    df = data_manager.parquet.get_stock_daily(
+        tickers=[ticker],
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    if df is None or df.empty:
+        raise ValueError(f"No historical data available for {ticker}")
+
+    # Filter to single ticker if multiple returned
+    if 'ticker' in df.columns:
+        df = df[df['ticker'] == ticker].copy()
+
+    # Ensure date column is present
+    if 'date' not in df.columns and df.index.name == 'date':
+        df = df.reset_index()
+
+    # Ensure we have the required columns
+    required_cols = ['date', 'close', 'volume']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+
+    # Calculate technical indicators using pandas
+    # RSI (simple implementation)
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['rsi'] = 100 - (100 / (1 + rs))
+
+    # MACD
+    ema_12 = df['close'].ewm(span=12, adjust=False).mean()
+    ema_26 = df['close'].ewm(span=26, adjust=False).mean()
+    df['macd'] = ema_12 - ema_26
+    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
+    df['macd_histogram'] = df['macd'] - df['macd_signal']
+
+    # Bollinger Bands
+    df['bb_middle'] = df['close'].rolling(window=20).mean()
+    std = df['close'].rolling(window=20).std()
+    df['bb_upper'] = df['bb_middle'] + (2 * std)
+    df['bb_lower'] = df['bb_middle'] - (2 * std)
+
+    # Drop NaN values (from indicator calculations)
+    df = df.dropna()
+
+    if df.empty:
+        raise ValueError(f"Not enough data to calculate technical indicators for {ticker}")
+
+    # Generate chart
+    fig = create_technical_dashboard(df, ticker=ticker)
+
+    # Save chart
+    chart_path = Path(chart_path)
+    chart_path.parent.mkdir(parents=True, exist_ok=True)
+    save_figure(fig, str(chart_path))

@@ -3,7 +3,9 @@ Data query CLI commands
 """
 
 import click
+import pandas as pd
 from datetime import datetime, timedelta
+from pathlib import Path
 from tabulate import tabulate
 
 
@@ -76,8 +78,11 @@ def list_tickers(ctx, data_type):
 @click.option('--type', 'data_type', default='stocks_daily',
               type=click.Choice(['stocks_daily', 'options_daily']),
               help='Data type (default: stocks_daily)')
+@click.option('--chart', type=click.Path(), help='Generate chart and save to HTML file')
+@click.option('--chart-type', type=click.Choice(['candlestick', 'line', 'comparison']),
+              default='candlestick', help='Chart type (default: candlestick)')
 @click.pass_context
-def query_data(ctx, tickers, start, end, limit, data_type):
+def query_data(ctx, tickers, start, end, limit, data_type, chart, chart_type):
     """Query Parquet data for specific tickers"""
     try:
         parquet = ctx.obj['parquet']
@@ -119,6 +124,17 @@ def query_data(ctx, tickers, start, end, limit, data_type):
 
         if len(df) > 20:
             click.echo(f"\n... {len(df) - 20} more rows")
+
+        # Generate chart if requested
+        if chart and data_type == 'stocks_daily':
+            try:
+                click.echo(f"\n📊 Generating {chart_type} chart...")
+                _generate_price_chart(df, list(tickers), chart, chart_type)
+                click.echo(f"📈 Chart saved to: {chart}")
+                click.echo(f"   Open in browser to view interactive chart")
+            except Exception as chart_error:
+                click.echo(f"⚠️  Chart generation failed: {chart_error}", err=True)
+                click.echo(f"   Data query completed successfully, but chart could not be generated")
 
     except Exception as e:
         click.echo(f"❌ Failed to query data: {e}", err=True)
@@ -278,3 +294,70 @@ def query_options_minute(ctx, tickers, start, end, option_type, min_strike, max_
         click.echo("   Use format: YYYY-MM-DD HH:MM (e.g., '2025-10-14 09:30')")
     except Exception as e:
         click.echo(f"❌ Failed to query options minute data: {e}", err=True)
+
+
+def _generate_price_chart(df, tickers, chart_path, chart_type):
+    """Generate price chart from queried data"""
+    from ..visualization import (
+        create_candlestick_chart,
+        create_price_line_chart,
+        create_multi_ticker_comparison,
+        save_figure,
+    )
+
+    # Ensure date column exists
+    if 'date' not in df.columns:
+        if df.index.name == 'date':
+            df = df.reset_index()
+        else:
+            raise ValueError("DataFrame must have 'date' column or 'date' index")
+
+    # Filter out any NaN dates
+    df = df.dropna(subset=['date'])
+
+    if df.empty:
+        raise ValueError("No valid data after filtering")
+
+    # Generate appropriate chart based on type and number of tickers
+    if chart_type == 'comparison' or len(tickers) > 1:
+        # Multi-ticker comparison chart
+        # Split DataFrame by ticker into dictionary format
+        data_dict = {}
+        if 'ticker' in df.columns:
+            for ticker in tickers:
+                ticker_df = df[df['ticker'] == ticker].copy()
+                if not ticker_df.empty:
+                    data_dict[ticker] = ticker_df
+        else:
+            # Single ticker case
+            data_dict[tickers[0]] = df
+
+        if not data_dict:
+            raise ValueError("No data available for the specified tickers")
+
+        fig = create_multi_ticker_comparison(data_dict)
+    elif chart_type == 'line':
+        # Line chart for single ticker
+        ticker = tickers[0]
+        if 'ticker' in df.columns:
+            df = df[df['ticker'] == ticker].copy()
+        fig = create_price_line_chart(df, ticker=ticker)
+    else:
+        # Candlestick chart (default) for single ticker
+        ticker = tickers[0]
+        if 'ticker' in df.columns:
+            df = df[df['ticker'] == ticker].copy()
+
+        # Check if we have OHLC data
+        required_cols = ['open', 'high', 'low', 'close']
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            # Fall back to line chart if OHLC data not available
+            fig = create_price_line_chart(df, ticker=ticker)
+        else:
+            fig = create_candlestick_chart(df, ticker=ticker)
+
+    # Save chart
+    chart_path = Path(chart_path)
+    chart_path.parent.mkdir(parents=True, exist_ok=True)
+    save_figure(fig, str(chart_path))

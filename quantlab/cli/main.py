@@ -11,6 +11,7 @@ from ..utils.logger import setup_logger
 from ..data.database import DatabaseManager
 from ..data.parquet_reader import ParquetReader
 from ..data.data_manager import DataManager
+from ..data.lookup_tables import LookupTableManager
 from ..core.portfolio_manager import PortfolioManager
 from ..core.analyzer import Analyzer
 
@@ -60,6 +61,9 @@ def cli(ctx, config, verbose):
             db_manager=ctx.obj['db'],
             data_manager=ctx.obj['data_mgr']
         )
+
+        # Initialize lookup table manager
+        ctx.obj['lookup'] = LookupTableManager(ctx.obj['db'])
 
     except Exception as e:
         click.echo(f"❌ Failed to initialize: {e}", err=True)
@@ -111,11 +115,17 @@ from .portfolio import portfolio as portfolio_cmd
 from .data import data as data_cmd
 from .analyze import analyze as analyze_cmd
 from .lookup import lookup as lookup_cmd
+from .strategy import strategy as strategy_cmd
+from .visualize import visualize as visualize_cmd
+from .screen import screen as screen_cmd
 
 cli.add_command(portfolio_cmd)
 cli.add_command(data_cmd)
 cli.add_command(analyze_cmd)
 cli.add_command(lookup_cmd)
+cli.add_command(strategy_cmd)
+cli.add_command(visualize_cmd)
+cli.add_command(screen_cmd)
 
 
 if __name__ == '__main__':
