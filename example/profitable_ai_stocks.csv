@@ -1,0 +1,12 @@
+ticker,name,market_cap,current_price,trailing_eps,pe_ratio,profit_margin,revenue_growth,industry,sector
+QLYS,"Qualys, Inc.",4597171200,127.36,5.03,25.320078,0.29042,0.103,Software - Infrastructure,Technology
+DLO,DLocal Limited,4437859840,15.11,0.48,31.479166,0.16896999,0.497,Software - Infrastructure,Technology
+DOCN,"DigitalOcean Holdings, Inc.",3804001792,41.785,1.31,31.896948,0.15183,0.136,Software - Infrastructure,Technology
+FORM,"FormFactor, Inc.",3250364416,42.15,0.57,73.94737,0.05746,-0.008,Semiconductor Equipment & Materials,Technology
+VCYT,"Veracyte, Inc.",2832177152,36.0,0.34,105.882355,0.054959998,0.138,Diagnostics & Research,Healthcare
+MGNI,"Magnite, Inc.",2576003584,18.09,0.3,60.3,0.06295,0.064,Advertising Agencies,Communication Services
+GLOB,Globant S.A.,2515686912,57.105,2.45,23.308163,0.04442,0.045,Information Technology Services,Technology
+RAMP,"LiveRamp Holdings, Inc.",1789217152,27.2724,0.19,143.53896,0.01887,0.107,Software - Infrastructure,Technology
+GDRX,"GoodRx Holdings, Inc.",1346368640,3.875,0.09,43.055553,0.04326,0.012,Health Information Services,Healthcare
+RPD,"Rapid7, Inc.",1164132096,17.98,0.44,40.863636,0.03276,0.03,Software - Infrastructure,Technology
+YEXT,"Yext, Inc.",1019784448,8.275,-0.11,,0.01656,0.114,Software - Infrastructure,Technology

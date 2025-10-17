@@ -8,7 +8,7 @@ quantlab/
 ├── .gitignore                          # Git ignore configuration
 ├── PROJECT_STRUCTURE.md                # This file
 │
-├── config/                             # System configuration
+├── system/                             # System-level configuration
 │   └── system_profile.yaml             # Qlib system settings
 │
 ├── configs/                            # Workflow configurations ⭐

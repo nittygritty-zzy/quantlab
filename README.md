@@ -55,8 +55,8 @@ quantlab/
 ├── notebooks/                      # Jupyter notebooks
 │   └── workflow_by_code.ipynb      # Qlib workflow examples
 │
-├── config/                         # System configuration
-│   └── system_profile.yaml         # System settings
+├── system/                         # System-level configuration
+│   └── system_profile.yaml         # Qlib system settings
 │
 └── qlib_repo/                      # Qlib source (gitignored, 828MB)
     └── (Microsoft qlib clone)
